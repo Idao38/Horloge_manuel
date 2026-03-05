@@ -1,0 +1,28 @@
+# Environnement virtuel Python
+.venv/
+venv/
+env/
+
+# Bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Build PyInstaller
+build/
+dist/
+*.spec
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Archives
+*.zip
+
+# Fichiers temporaires
+*.log
+*.tmp
