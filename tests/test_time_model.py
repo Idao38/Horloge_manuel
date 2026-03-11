@@ -1,4 +1,4 @@
-from src.horloge_jdr.time_model import DayCounter, MINUTES_PER_DAY, TimeModel
+from horloge_jdr.time_model import DayCounter, MINUTES_PER_DAY, TimeModel
 
 
 def test_initial_time_is_zero():
