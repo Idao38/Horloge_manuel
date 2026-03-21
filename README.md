@@ -1,74 +1,97 @@
-# Horloge - Un jour de plus
+# Horloge — Un jour de plus
 
-Horloge digitale manuelle pour suivi du temps en JDR, sous forme d'exécutable Windows autonome.
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
+
+Application de bureau (Python / Tkinter) pour afficher une **horloge manuelle** et un **compteur de jours** lors des parties de JDR. L’affichage est pensé pour être projeté ou montré aux joueurs, avec une fenêtre de contrôle séparée pour le meneur.
+
+**Version actuelle : 1.0.0** — le numéro est défini dans `src/horloge_jdr/version.py` (à synchroniser avec `pyproject.toml` lors d’une nouvelle release). Les titres des fenêtres affichent `v1.0.0`.
 
 ## Fonctionnalités
 
-- Affichage **HH:MM** au format 24h ou **compte à rebours** en `MM:SS`.
-- Heure initiale toujours **00:00** à chaque lancement.
-- Contrôles du temps (fenêtre de contrôle) :
-  - Boutons : `-1 h`, `-10 min`, `+10 min`, `+1 h`, `-1 j`, `+1 j`.
-- Compteur de jours :
-  - Affichage discret `Jour N` dans un coin de la fenêtre d'affichage.
-  - Boutons `-1 j` et `+1 j` dans la fenêtre de contrôle.
-- Compte à rebours :
-  - Saisie du nombre de minutes dans la fenêtre de contrôle.
-  - Boutons `Démarrer`, `Arrêter`, `Réinitialiser`.
-  - Bascule du mode d'affichage entre **heure manuelle** et **compte à rebours**.
-- Affichage de type horloge numérique :
-  - **Chiffres rouges** sur **fond noir**.
-  - Effet de clignotement léger type néon fatigué.
-  - Fenêtre d'affichage redimensionnable, l'affichage s'adapte à la taille.
-- Aucune sauvegarde à la fermeture, aucun fichier de configuration.
+### Affichage principal
 
-## Structure du projet
+- **Heure manuelle** au format **HH:MM** (24 h) ou **compte à rebours** en **MM:SS**.
+- Au lancement, l’heure repart toujours de **00:00** ; le jour de **Jour 0** (modifiable).
+- Compteur de jours **Jour N** en haut à droite de l’écran d’affichage.
+- Style **chiffres rouges sur fond noir**, avec un **léger clignotement** type néon sur l’heure et le jour.
+- **Texte libre sous l’horloge** (style terminal / Matrix, vert sur noir) :
+  - **Colonne gauche** (~80 % de la largeur) et **colonne droite** (~20 %), pour notes, listes, etc.
+  - Texte **redimensionné automatiquement** pour tenir dans la zone disponible.
+- Fenêtre d’affichage **redimensionnable** ; polices et mise en page **adaptatives**.
+- Icône de fenêtre : `assets/clock_icon.ico` (si présent), y compris dans l’exécutable PyInstaller.
 
-- `src/horloge_jdr/time_model.py` : logique de calcul du temps (modèle de base).
-- `src/horloge_jdr/domain.py` : couche de domaine (`ClockState`, `CountdownModel`, `AppState`).
-- `src/horloge_jdr/controller.py` : contrôleur (`HorlogeController`) qui orchestre les mises à jour et notifie les vues.
-- `src/horloge_jdr/app.py` : point d'entrée Tkinter, création des deux fenêtres (`DisplayWindow` et `ControlWindow`).
-- `tests/test_domain.py` : tests unitaires sur la logique de domaine.
+### Fenêtre de contrôle
+
+- **Aperçu** de l’écran d’affichage (mise en page simplifiée).
+- Boutons de temps : **+1 h**, **-1 h**, **+10 min**, **-10 min**, **+1 j**, **-1 j**.
+- Éditeurs de texte pour les **deux colonnes** sous l’horloge, avec bouton **Appliquer les textes sur l’écran**.
+- **Compte à rebours** : saisie des minutes (1–999), **Démarrer**, **Arrêter**, **Réinitialiser**.
+- Choix du **mode d’affichage** : heure manuelle ou compte à rebours.
+- Fermer la fenêtre de contrôle avec la croix la **masque** (elle reste ouvrable depuis l’affichage).
+- **Ctrl+C** depuis la fenêtre d’affichage : **rouvre** la fenêtre de contrôle si elle est masquée. Un bandeau rappelle ce raccourci tant que la fenêtre de contrôle n’est pas visible.
+- Bouton **Fermer l’application** pour quitter proprement.
+
+### Multi-écrans
+
+- Si un **second moniteur** est détecté (via la bibliothèque `screeninfo`), la fenêtre d’afficheur tente de passer en **plein écran sur le second écran** ; la fenêtre de contrôle reste sur l’écran principal.
+- Sans `screeninfo`, sans second écran, ou en cas d’erreur : l’afficheur est **maximisé** sur l’écran principal.
+
+### Données
+
+- **Aucune persistance** : à la fermeture, rien n’est sauvegardé sur le disque.
+
+## Architecture du code
+
+| Fichier | Rôle |
+|--------|------|
+| `src/horloge_jdr/time_model.py` | Modèle de temps (minutes dans la journée) et compteur de jours. |
+| `src/horloge_jdr/domain.py` | Domaine : `ClockState`, `CountdownModel`, `AppState`, `DisplayMode`. |
+| `src/horloge_jdr/controller.py` | `HorlogeController` : actions utilisateur et notifications aux vues. |
+| `src/horloge_jdr/app.py` | Interface Tkinter : `DisplayWindow`, `ControlWindow`, effet néon, placement multi-écran. |
+| `tests/test_time_model.py` | Tests sur le modèle de temps et les jours. |
+| `tests/test_domain.py` | Tests sur la logique de domaine (horloge, compte à rebours, messages). |
 
 ## Prérequis
 
-- Windows 10 ou 11 (64 bits).
-- Python 3.10+ installé (pour développer / générer l'exécutable).
+- **Windows** 10 ou 11 (64 bits) — environnement cible principal.
+- **Python 3.10+** pour le développement et la génération de l’exécutable.
 
-## Installation des dépendances (développement)
+## Installation (développement)
 
-Dans un terminal positionné à la racine du projet :
+À la racine du dépôt :
 
-```bash
+```powershell
 python -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-## Lancer l'application en mode développement
+Les dépendances incluent notamment **PyInstaller**, **pytest**, **Pillow**, **screeninfo** (détection des écrans pour le placement de la fenêtre d’affichage).
 
-Depuis la racine du projet :
+## Lancer l’application
 
-```bash
+```powershell
 python -m src.horloge_jdr.app
 ```
 
-En mode **deux écrans** (extension d'écran détectée), la fenêtre d'affichage essaiera de se placer en plein écran sur le deuxième moniteur, tandis que la fenêtre de contrôle restera sur l'écran principal.  
-Si aucun deuxième écran n'est détecté, les deux fenêtres seront créées sur l'écran principal (l'affichage reste plein écran, la fenêtre de contrôle est positionnée dans un coin).
+## Tests
 
-## Exécuter les tests
-
-```bash
+```powershell
 pytest
 ```
 
-## Générer l'exécutable Windows autonome
+## Exécutable Windows (PyInstaller)
 
-Depuis la racine du projet, dans l'environnement virtuel :
+À la racine du projet, avec l’environnement virtuel activé :
 
-```bash
-pyinstaller --onefile --noconsole -n "Horloge - Un jour de plus" src/horloge_jdr/app.py
+```powershell
+pyinstaller "Horloge - Un jour de plus.spec"
 ```
 
-L'exécutable sera généré dans le dossier `dist` sous le nom `Horloge - Un jour de plus.exe`.  
-Tu pourras ensuite copier ce fichier où tu veux et le lancer directement, sans installateur.
+#
+## Licence
 
+Ce projet est sous **Creative Commons Attribution — Pas d’utilisation commerciale — Partage dans les mêmes conditions 4.0 International** ([**CC BY-NC-SA 4.0**](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.fr)).
+
+
+Le texte légal complet figure dans le fichier [`LICENSE`](LICENSE). Adapte la ligne de copyright dans `LICENSE` si tu ajoutes d’autres détenteurs de droits.

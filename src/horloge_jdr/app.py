@@ -7,12 +7,13 @@ import tkinter as tk
 from tkinter import ttk
 
 # Import du contrôleur adapté au contexte (package vs exécutable PyInstaller)
-if getattr(sys, "frozen", False) and (__package__ is None or __package__ == ""):
-    # Contexte exécutable : modules plats dans le même dossier qu'app.py
-    from controller import HorlogeController
+if getattr(sys, "frozen", False):
+    # PyInstaller conserve le package horloge_jdr dans le bundle (pas de modules plats type "controller")
+    from horloge_jdr.controller import HorlogeController
+    from horloge_jdr.version import __version__ as APP_VERSION
 else:
-    # Contexte package : exécution via python -m src.horloge_jdr.app
     from .controller import HorlogeController
+    from .version import __version__ as APP_VERSION
 
 
 def _get_icon_path() -> str | None:
@@ -135,7 +136,7 @@ class DisplayWindow(tk.Toplevel):
         self.controller = controller
         self._control_window = control_window
 
-        self.title("Affichage - Horloge JDR")
+        self.title(f"Affichage - Horloge JDR v{APP_VERSION}")
         self.configure(bg="black")
         self.minsize(300, 150)
 
@@ -149,14 +150,28 @@ class DisplayWindow(tk.Toplevel):
         self.main_frame = tk.Frame(self, bg="black", bd=0, highlightthickness=0)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
 
+        # Bandeau d'aide en haut à gauche (avant la zone d'affichage : évite d'être masqué par le texte Matrix)
+        help_frame = tk.Frame(self.main_frame, bg="black", bd=0, highlightthickness=0)
+        help_frame.pack(fill=tk.X, padx=10, pady=(10, 4))
+
+        self.help_label = tk.Label(
+            help_frame,
+            text="Ctrl + C : rouvrir la fenêtre de contrôle",
+            fg="red",
+            bg="black",
+            anchor="w",
+            font=("Courier New", 10, "bold"),
+        )
+        self.help_label.pack(side=tk.LEFT, anchor="w")
+
         self.display_frame = tk.Frame(self.main_frame, bg="black", bd=0, highlightthickness=0)
-        self.display_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(10, 0))
+        self.display_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
 
         # Import local pour éviter les cycles au chargement, avec fallback exécutable
         try:
             from .domain import AppState  # type: ignore[import-not-found]
-        except ImportError:  # pragma: no cover - exécutable PyInstaller
-            from domain import AppState  # type: ignore[import-not-found]
+        except ImportError:  # pragma: no cover - exécutable PyInstaller (__main__ sans package)
+            from horloge_jdr.domain import AppState  # type: ignore[import-not-found]
 
         initial_state = controller.state if isinstance(controller.state, AppState) else None
         initial_time = initial_state.current_display_text() if initial_state else "00:00"
@@ -205,20 +220,6 @@ class DisplayWindow(tk.Toplevel):
         self._layout_busy = False
         self._last_message_fit_key: tuple[object, ...] | None = None
         self._display_config_wh = (0, 0)
-
-        # Bandeau d'aide en bas à gauche (rappel du raccourci pour rouvrir la fenêtre de contrôle)
-        help_frame = tk.Frame(self.main_frame, bg="black", bd=0, highlightthickness=0)
-        help_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
-
-        self.help_label = tk.Label(
-            help_frame,
-            text="Ctrl + C : rouvrir la fenêtre de contrôle",
-            fg="red",
-            bg="black",
-            anchor="w",
-            font=("Courier New", 10, "bold"),
-        )
-        self.help_label.pack(side=tk.LEFT, anchor="w")
 
         self._time_flicker = NeonFlickerEffect(self, self.time_label, prob=0.04)
         self._day_flicker = NeonFlickerEffect(self, self.day_label, prob=0.10)
@@ -423,7 +424,7 @@ class ControlWindow(tk.Toplevel):
         self._root = master
         self.controller = controller
 
-        self.title("Contrôle - Horloge JDR")
+        self.title(f"Contrôle - Horloge JDR v{APP_VERSION}")
         self.configure(bg="black")
         # Taille minimale : aperçu + texte + boutons + compte à rebours + mode + fermer
         self.minsize(600, 600)
@@ -433,8 +434,8 @@ class ControlWindow(tk.Toplevel):
 
         try:
             from .domain import AppState  # type: ignore[import-not-found]
-        except ImportError:  # pragma: no cover - exécutable PyInstaller
-            from domain import AppState  # type: ignore[import-not-found]
+        except ImportError:  # pragma: no cover - exécutable PyInstaller (__main__ sans package)
+            from horloge_jdr.domain import AppState  # type: ignore[import-not-found]
 
         initial_state = controller.state if isinstance(controller.state, AppState) else None
         initial_time = initial_state.current_display_text() if initial_state else "00:00"

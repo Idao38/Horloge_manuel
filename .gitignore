@@ -26,3 +26,7 @@ Thumbs.db
 # Fichiers temporaires
 *.log
 *.tmp
+
+# Site statique GitHub Pages (dossier docs/)
+# Retire cette ligne (ou utilise git add -f docs/) pour versionner et publier sur https://pages.github.com/
+docs/
