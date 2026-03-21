@@ -31,6 +31,63 @@ def _get_icon_path() -> str | None:
     return None
 
 
+# Texte libre sous l'horloge : style terminal / Matrix
+_MATRIX_GREEN = "#00FF41"
+_MATRIX_EDITOR_BG = "#030803"
+_MATRIX_EDITOR_BORDER = "#2d6a3d"
+_MATRIX_SELECT_BG = "#003311"
+
+def _matrix_font(size: int) -> tuple[str, int, str]:
+    """Police monospace type terminal ; Consolas est généralement disponible sous Windows."""
+    return ("Consolas", max(size, 5), "normal")
+
+
+# Colonnes sous l'horloge : ~80 % gauche / 20 % droite (avec marges)
+_LEFT_TEXT_MARGIN_REL = 0.01
+_GAP_TEXT_COLUMNS_REL = 0.01
+_RIGHT_TEXT_RELWIDTH = 0.20
+_LEFT_TEXT_RELWIDTH_BOTH = 1.0 - _LEFT_TEXT_MARGIN_REL - _GAP_TEXT_COLUMNS_REL - _RIGHT_TEXT_RELWIDTH
+
+# Police Matrix : taille mini pour le rétrécissement adaptatif (tout le texte doit tenir dans la zone).
+_MATRIX_MIN_FONT = 5
+
+
+def _fit_matrix_label_to_height(
+    root: tk.Misc,
+    label: tk.Label,
+    *,
+    wraplength_px: int,
+    max_height_px: float,
+    max_font: int,
+    min_font: int = _MATRIX_MIN_FONT,
+) -> int:
+    """
+    Plus grande taille de police pour que le Label (wraplength fixé) tienne en hauteur.
+    Recherche dichotomique : peu d'appels à update_idletasks (évite boucles / plantages).
+    """
+    min_font = max(min_font, _MATRIX_MIN_FONT)
+    max_font = max(max_font, min_font)
+    wl = max(1, int(wraplength_px))
+    lo, hi = min_font, max_font
+    best = min_font
+    limit = float(max_height_px) + 4.0
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        label.config(font=_matrix_font(mid), wraplength=wl, fg=_MATRIX_GREEN)
+        root.update_idletasks()
+        try:
+            h = float(label.winfo_reqheight())
+        except tk.TclError:
+            h = limit + 1.0
+        if h <= limit:
+            best = mid
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    label.config(font=_matrix_font(best), wraplength=wl, fg=_MATRIX_GREEN)
+    return best
+
+
 class NeonFlickerEffect:
     """Effet de clignotement type néon pour un label Tkinter."""
 
@@ -104,7 +161,10 @@ class DisplayWindow(tk.Toplevel):
         initial_state = controller.state if isinstance(controller.state, AppState) else None
         initial_time = initial_state.current_display_text() if initial_state else "00:00"
         initial_day = initial_state.current_day_text() if initial_state else "Jour 0"
+        initial_message = (initial_state.display_message if initial_state else "") or ""
+        initial_message_right = (initial_state.display_message_right if initial_state else "") or ""
 
+        # Placement absolu : l'heure reste centrée dans la fenêtre (rely=0.5) même si du texte est affiché en dessous.
         self.time_label = tk.Label(
             self.display_frame,
             text=initial_time,
@@ -112,7 +172,6 @@ class DisplayWindow(tk.Toplevel):
             bg="black",
             anchor="center",
         )
-        self.time_label.pack(fill=tk.BOTH, expand=True)
 
         self.day_label = tk.Label(
             self.display_frame,
@@ -121,7 +180,31 @@ class DisplayWindow(tk.Toplevel):
             bg="black",
             anchor="ne",
         )
-        self.day_label.place(relx=1.0, rely=0.0, anchor="ne", x=-10, y=10)
+
+        self.message_label = tk.Label(
+            self.display_frame,
+            text=initial_message,
+            fg=_MATRIX_GREEN,
+            bg="black",
+            anchor="nw",
+            justify="left",
+        )
+
+        self.message_right_label = tk.Label(
+            self.display_frame,
+            text=initial_message_right,
+            fg=_MATRIX_GREEN,
+            bg="black",
+            anchor="nw",
+            justify="left",
+        )
+
+        self._message_left_visible = bool(initial_message.strip())
+        self._message_right_visible = bool(initial_message_right.strip())
+
+        self._layout_busy = False
+        self._last_message_fit_key: tuple[object, ...] | None = None
+        self._display_config_wh = (0, 0)
 
         # Bandeau d'aide en bas à gauche (rappel du raccourci pour rouvrir la fenêtre de contrôle)
         help_frame = tk.Frame(self.main_frame, bg="black", bd=0, highlightthickness=0)
@@ -140,7 +223,8 @@ class DisplayWindow(tk.Toplevel):
         self._time_flicker = NeonFlickerEffect(self, self.time_label, prob=0.04)
         self._day_flicker = NeonFlickerEffect(self, self.day_label, prob=0.10)
 
-        self.bind("<Configure>", self._on_resize)
+        # Configure sur la zone d'affichage uniquement (évite boucles avec les labels sous l'horloge).
+        self.display_frame.bind("<Configure>", self._on_display_configure)
 
         # Raccourci clavier pour rouvrir/afficher la fenêtre de contrôle
         self.bind_all("<Control-c>", self._on_show_control_window)
@@ -162,24 +246,133 @@ class DisplayWindow(tk.Toplevel):
         try:
             self.time_label.config(text=state.current_display_text())
             self.day_label.config(text=state.current_day_text())
+            self._sync_display_messages(state.display_message, state.display_message_right)
         except tk.TclError:
             # En cas de destruction asynchrone des widgets, on se désabonne pour éviter les erreurs.
             try:
                 self.controller.remove_listener(self._on_state_changed)
             except Exception:
                 pass
+            return
+        self.after_idle(self._update_fonts)
 
-    def _on_resize(self, event: tk.Event) -> None:  # type: ignore[type-arg]
+    def _sync_display_messages(self, text_left: str, text_right: str) -> None:
+        self._message_left_visible = bool(text_left.strip())
+        self._message_right_visible = bool(text_right.strip())
+        self.message_label.config(text=text_left)
+        self.message_right_label.config(text=text_right)
+
+    def _on_display_configure(self, event: tk.Event) -> None:  # type: ignore[type-arg]
+        if event.widget != self.display_frame:
+            return
+        w, h = int(event.width), int(event.height)
+        if w < 2 or h < 2:
+            return
+        if (w, h) == self._display_config_wh:
+            return
+        self._display_config_wh = (w, h)
+        self._last_message_fit_key = None
         self.after_idle(self._update_fonts)
 
     def _update_fonts(self) -> None:
-        width = max(self.display_frame.winfo_width(), 1)
-        height = max(self.display_frame.winfo_height(), 1)
-        base = min(width // 5, height // 2)
-        font_size = max(base, 20)
-        self.time_label.config(font=("Courier New", font_size, "bold"))
-        day_font_size = max(font_size // 4, 8)
-        self.day_label.config(font=("Courier New", day_font_size, "bold"))
+        if self._layout_busy:
+            return
+        self._layout_busy = True
+        try:
+            self.update_idletasks()
+            width = max(self.display_frame.winfo_width(), 1)
+            df_h = max(self.display_frame.winfo_height(), 1)
+
+            # Police d'horloge : toujours calculée comme si seule l'horloge remplissait la zone (comme sans texte).
+            base = min(width // 5, df_h // 2)
+            font_size = max(base, 20)
+            self.time_label.config(font=("Courier New", font_size, "bold"))
+            day_font_size = max(font_size // 4, 8)
+            self.day_label.config(font=("Courier New", day_font_size, "bold"))
+
+            self.time_label.place(relx=0.5, rely=0.5, anchor="center")
+            self.day_label.place(relx=1.0, rely=0.0, anchor="ne", x=-10, y=10)
+
+            if not (self._message_left_visible or self._message_right_visible):
+                self.message_label.place_forget()
+                self.message_right_label.place_forget()
+                self._last_message_fit_key = None
+                return
+
+            txt_l = self.message_label.cget("text") or ""
+            txt_r = self.message_right_label.cget("text") or ""
+            fit_key = (
+                int(width),
+                int(df_h),
+                txt_l,
+                txt_r,
+                self._message_left_visible,
+                self._message_right_visible,
+            )
+            if fit_key == self._last_message_fit_key:
+                return
+
+            self.update_idletasks()
+            time_h = float(self.time_label.winfo_reqheight())
+            gap_px = 12.0
+            msg_rely = (0.5 * float(df_h) + time_h / 2.0 + gap_px) / float(df_h)
+            msg_rely = min(max(msg_rely, 0.02), 0.96)
+
+            msg_top_px = msg_rely * float(df_h)
+            msg_h = max(float(df_h) - msg_top_px - 16.0, 24.0)
+            base_msg = max(font_size // 6, 6)
+
+            both = self._message_left_visible and self._message_right_visible
+
+            if self._message_left_visible:
+                wl = max(int(width * (_LEFT_TEXT_RELWIDTH_BOTH if both else 0.98) - 24), 40)
+                if both:
+                    self.message_label.place(
+                        relx=_LEFT_TEXT_MARGIN_REL,
+                        rely=msg_rely,
+                        anchor="nw",
+                        relwidth=_LEFT_TEXT_RELWIDTH_BOTH,
+                    )
+                else:
+                    self.message_label.place(relx=_LEFT_TEXT_MARGIN_REL, rely=msg_rely, anchor="nw", relwidth=0.98)
+                _fit_matrix_label_to_height(
+                    self,
+                    self.message_label,
+                    wraplength_px=wl,
+                    max_height_px=msg_h,
+                    max_font=base_msg,
+                )
+
+            if self._message_right_visible:
+                wr = max(int(width * _RIGHT_TEXT_RELWIDTH - 16), 24)
+                relx_r = (
+                    _LEFT_TEXT_MARGIN_REL + _LEFT_TEXT_RELWIDTH_BOTH + _GAP_TEXT_COLUMNS_REL
+                    if both
+                    else 1.0 - _RIGHT_TEXT_RELWIDTH - _LEFT_TEXT_MARGIN_REL
+                )
+                self.message_right_label.place(relx=relx_r, rely=msg_rely, anchor="nw", relwidth=_RIGHT_TEXT_RELWIDTH)
+                _fit_matrix_label_to_height(
+                    self,
+                    self.message_right_label,
+                    wraplength_px=wr,
+                    max_height_px=msg_h,
+                    max_font=base_msg,
+                )
+
+            if self._message_left_visible:
+                self.time_label.lift(self.message_label)
+                self.day_label.lift(self.message_label)
+            if self._message_right_visible:
+                self.time_label.lift(self.message_right_label)
+                self.day_label.lift(self.message_right_label)
+            if not self._message_left_visible:
+                self.message_label.place_forget()
+            if not self._message_right_visible:
+                self.message_right_label.place_forget()
+
+            self._last_message_fit_key = fit_key
+        finally:
+            self._layout_busy = False
 
     def _on_show_control_window(self, event: tk.Event | None = None) -> None:  # type: ignore[type-arg]
         if self._control_window is not None:
@@ -232,8 +425,8 @@ class ControlWindow(tk.Toplevel):
 
         self.title("Contrôle - Horloge JDR")
         self.configure(bg="black")
-        # Taille minimale : aperçu 2e écran + boutons + compte à rebours + mode + fermer
-        self.minsize(600, 380)
+        # Taille minimale : aperçu + texte + boutons + compte à rebours + mode + fermer
+        self.minsize(600, 600)
 
         self.main_frame = tk.Frame(self, bg="black", bd=0, highlightthickness=0)
         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -246,6 +439,8 @@ class ControlWindow(tk.Toplevel):
         initial_state = controller.state if isinstance(controller.state, AppState) else None
         initial_time = initial_state.current_display_text() if initial_state else "00:00"
         initial_day = initial_state.current_day_text() if initial_state else "Jour 0"
+        initial_message = (initial_state.display_message if initial_state else "") or ""
+        initial_message_right = (initial_state.display_message_right if initial_state else "") or ""
 
         preview_frame = tk.LabelFrame(
             self.main_frame,
@@ -263,7 +458,7 @@ class ControlWindow(tk.Toplevel):
             bd=0,
             highlightthickness=1,
             highlightbackground="#660000",
-            height=110,
+            height=160,
         )
         self._preview_canvas.pack(fill=tk.X, padx=6, pady=6)
         self._preview_canvas.pack_propagate(False)
@@ -275,7 +470,6 @@ class ControlWindow(tk.Toplevel):
             bg="black",
             anchor="center",
         )
-        self._preview_time_label.pack(fill=tk.BOTH, expand=True)
 
         self._preview_day_label = tk.Label(
             self._preview_canvas,
@@ -284,9 +478,33 @@ class ControlWindow(tk.Toplevel):
             bg="black",
             anchor="ne",
         )
-        self._preview_day_label.place(relx=1.0, rely=0.0, anchor="ne", x=-8, y=6)
 
-        self._preview_canvas.bind("<Configure>", self._on_preview_resize)
+        self._preview_message_label = tk.Label(
+            self._preview_canvas,
+            text=initial_message,
+            fg=_MATRIX_GREEN,
+            bg="black",
+            anchor="nw",
+            justify="left",
+        )
+
+        self._preview_message_right_label = tk.Label(
+            self._preview_canvas,
+            text=initial_message_right,
+            fg=_MATRIX_GREEN,
+            bg="black",
+            anchor="nw",
+            justify="left",
+        )
+
+        self._preview_message_left_visible = bool(initial_message.strip())
+        self._preview_message_right_visible = bool(initial_message_right.strip())
+
+        self._preview_layout_busy = False
+        self._last_preview_fit_key: tuple[object, ...] | None = None
+        self._preview_config_wh = (0, 0)
+
+        self._preview_canvas.bind("<Configure>", self._on_preview_canvas_configure)
         self.after_idle(self._update_preview_fonts)
 
         style = ttk.Style(self)
@@ -308,6 +526,83 @@ class ControlWindow(tk.Toplevel):
         self._add_button(buttons_frame, "-10 min", self.controller.on_minus_10min)
         self._add_button(buttons_frame, "+1 j", self.controller.on_plus_day)
         self._add_button(buttons_frame, "-1 j", self.controller.on_minus_day)
+
+        message_frame = tk.LabelFrame(
+            self.main_frame,
+            text="Textes sous l'horloge (gauche ~80 % / droite ~20 %)",
+            fg="white",
+            bg="black",
+            bd=1,
+            highlightthickness=0,
+        )
+        message_frame.pack(fill=tk.X, pady=(0, 10))
+        message_frame.grid_columnconfigure(0, weight=8)
+        message_frame.grid_columnconfigure(1, weight=2)
+        message_frame.grid_rowconfigure(0, weight=1)
+
+        self._message_editor_left_wrap = tk.Frame(
+            message_frame,
+            bg=_MATRIX_EDITOR_BG,
+            highlightthickness=1,
+            highlightbackground=_MATRIX_EDITOR_BORDER,
+            bd=0,
+        )
+        self._message_editor_left_wrap.grid(row=0, column=0, sticky="nsew", padx=(6, 3), pady=(6, 4))
+
+        self._message_editor_left = tk.Text(
+            self._message_editor_left_wrap,
+            height=4,
+            wrap="word",
+            fg=_MATRIX_GREEN,
+            bg=_MATRIX_EDITOR_BG,
+            insertbackground=_MATRIX_GREEN,
+            font=("Consolas", 10),
+            relief=tk.FLAT,
+            padx=6,
+            pady=4,
+            selectbackground=_MATRIX_SELECT_BG,
+            selectforeground=_MATRIX_GREEN,
+        )
+        self._message_editor_left.pack(fill=tk.BOTH, expand=True)
+
+        self._message_editor_right_wrap = tk.Frame(
+            message_frame,
+            bg=_MATRIX_EDITOR_BG,
+            highlightthickness=1,
+            highlightbackground=_MATRIX_EDITOR_BORDER,
+            bd=0,
+        )
+        self._message_editor_right_wrap.grid(row=0, column=1, sticky="nsew", padx=(3, 6), pady=(6, 4))
+
+        self._message_editor_right = tk.Text(
+            self._message_editor_right_wrap,
+            height=4,
+            width=22,
+            wrap="word",
+            fg=_MATRIX_GREEN,
+            bg=_MATRIX_EDITOR_BG,
+            insertbackground=_MATRIX_GREEN,
+            font=("Consolas", 10),
+            relief=tk.FLAT,
+            padx=6,
+            pady=4,
+            selectbackground=_MATRIX_SELECT_BG,
+            selectforeground=_MATRIX_GREEN,
+        )
+        self._message_editor_right.pack(fill=tk.BOTH, expand=True)
+
+        if initial_message:
+            self._message_editor_left.insert("1.0", initial_message)
+        if initial_message_right:
+            self._message_editor_right.insert("1.0", initial_message_right)
+
+        apply_msg_btn = ttk.Button(
+            message_frame,
+            text="Appliquer les textes sur l'écran",
+            style="Dark.TButton",
+            command=self._on_apply_display_message,
+        )
+        apply_msg_btn.grid(row=1, column=0, columnspan=2, sticky="ew", padx=6, pady=(4, 6))
 
         countdown_frame = tk.LabelFrame(
             self.main_frame,
@@ -427,19 +722,131 @@ class ControlWindow(tk.Toplevel):
         else:
             self.controller.on_set_display_manual_time()
 
-    def _on_preview_resize(self, event: tk.Event) -> None:  # type: ignore[type-arg]
+    def _on_apply_display_message(self) -> None:
+        left = self._message_editor_left.get("1.0", "end-1c")
+        right = self._message_editor_right.get("1.0", "end-1c")
+        self.controller.on_set_display_message(left)
+        self.controller.on_set_display_message_right(right)
+
+    def _on_preview_canvas_configure(self, event: tk.Event) -> None:  # type: ignore[type-arg]
+        if event.widget != self._preview_canvas:
+            return
+        w, h = int(event.width), int(event.height)
+        if w < 2 or h < 2:
+            return
+        if (w, h) == self._preview_config_wh:
+            return
+        self._preview_config_wh = (w, h)
+        self._last_preview_fit_key = None
         self.after_idle(self._update_preview_fonts)
 
     def _update_preview_fonts(self) -> None:
-        w = max(self._preview_canvas.winfo_width(), 1)
-        h = max(self._preview_canvas.winfo_height(), 1)
-        base = min(w // 5, h // 2)
-        font_size = max(base, 14)
+        if self._preview_layout_busy:
+            return
+        self._preview_layout_busy = True
         try:
+            self.update_idletasks()
+            w = max(self._preview_canvas.winfo_width(), 1)
+            canvas_h = max(self._preview_canvas.winfo_height(), 1)
+            base = min(w // 5, canvas_h // 2)
+            font_size = max(base, 14)
             self._preview_time_label.config(font=("Courier New", font_size, "bold"))
             self._preview_day_label.config(font=("Courier New", max(font_size // 4, 8), "bold"))
+            self._preview_time_label.place(relx=0.5, rely=0.5, anchor="center")
+            self._preview_day_label.place(relx=1.0, rely=0.0, anchor="ne", x=-8, y=6)
+
+            if not (self._preview_message_left_visible or self._preview_message_right_visible):
+                self._preview_message_label.place_forget()
+                self._preview_message_right_label.place_forget()
+                self._last_preview_fit_key = None
+                return
+
+            txt_l = self._preview_message_label.cget("text") or ""
+            txt_r = self._preview_message_right_label.cget("text") or ""
+            pkey = (
+                int(w),
+                int(canvas_h),
+                txt_l,
+                txt_r,
+                self._preview_message_left_visible,
+                self._preview_message_right_visible,
+            )
+            if pkey == self._last_preview_fit_key:
+                return
+
+            self.update_idletasks()
+            time_h = float(self._preview_time_label.winfo_reqheight())
+            gap_px = 6.0
+            msg_rely = (0.5 * float(canvas_h) + time_h / 2.0 + gap_px) / float(canvas_h)
+            msg_rely = min(max(msg_rely, 0.02), 0.96)
+
+            msg_top_px = msg_rely * float(canvas_h)
+            msg_h = max(float(canvas_h) - msg_top_px - 8.0, 12.0)
+            base_msg = max(font_size // 6, 6)
+
+            both = self._preview_message_left_visible and self._preview_message_right_visible
+
+            if self._preview_message_left_visible:
+                wl = max(int(w * (_LEFT_TEXT_RELWIDTH_BOTH if both else 0.98) - 16), 24)
+                if both:
+                    self._preview_message_label.place(
+                        relx=_LEFT_TEXT_MARGIN_REL,
+                        rely=msg_rely,
+                        anchor="nw",
+                        relwidth=_LEFT_TEXT_RELWIDTH_BOTH,
+                    )
+                else:
+                    self._preview_message_label.place(
+                        relx=_LEFT_TEXT_MARGIN_REL,
+                        rely=msg_rely,
+                        anchor="nw",
+                        relwidth=0.98,
+                    )
+                _fit_matrix_label_to_height(
+                    self,
+                    self._preview_message_label,
+                    wraplength_px=wl,
+                    max_height_px=msg_h,
+                    max_font=base_msg,
+                )
+
+            if self._preview_message_right_visible:
+                wr = max(int(w * _RIGHT_TEXT_RELWIDTH - 12), 16)
+                relx_r = (
+                    _LEFT_TEXT_MARGIN_REL + _LEFT_TEXT_RELWIDTH_BOTH + _GAP_TEXT_COLUMNS_REL
+                    if both
+                    else 1.0 - _RIGHT_TEXT_RELWIDTH - _LEFT_TEXT_MARGIN_REL
+                )
+                self._preview_message_right_label.place(
+                    relx=relx_r,
+                    rely=msg_rely,
+                    anchor="nw",
+                    relwidth=_RIGHT_TEXT_RELWIDTH,
+                )
+                _fit_matrix_label_to_height(
+                    self,
+                    self._preview_message_right_label,
+                    wraplength_px=wr,
+                    max_height_px=msg_h,
+                    max_font=base_msg,
+                )
+
+            if self._preview_message_left_visible:
+                self._preview_time_label.lift(self._preview_message_label)
+                self._preview_day_label.lift(self._preview_message_label)
+            if self._preview_message_right_visible:
+                self._preview_time_label.lift(self._preview_message_right_label)
+                self._preview_day_label.lift(self._preview_message_right_label)
+            if not self._preview_message_left_visible:
+                self._preview_message_label.place_forget()
+            if not self._preview_message_right_visible:
+                self._preview_message_right_label.place_forget()
+
+            self._last_preview_fit_key = pkey
         except tk.TclError:
             pass
+        finally:
+            self._preview_layout_busy = False
 
     def _on_state_changed(self, state) -> None:
         # Synchroniser le radio bouton avec l'état global si besoin
@@ -450,6 +857,11 @@ class ControlWindow(tk.Toplevel):
         try:
             self._preview_time_label.config(text=state.current_display_text())
             self._preview_day_label.config(text=state.current_day_text())
+            self._preview_message_label.config(text=state.display_message)
+            self._preview_message_right_label.config(text=state.display_message_right)
+            self._preview_message_left_visible = bool(state.display_message.strip())
+            self._preview_message_right_visible = bool(state.display_message_right.strip())
+            self.after_idle(self._update_preview_fonts)
         except tk.TclError:
             pass
 
@@ -506,7 +918,7 @@ def main() -> None:
 
     # Placer la fenêtre de contrôle de manière raisonnable sur l'écran principal
     # Hauteur augmentée pour que tous les contrôles soient visibles sans redimensionner.
-    control.geometry("600x400+100+100")
+    control.geometry("600x620+100+100")
 
     def _tick() -> None:
         controller.tick_countdown()

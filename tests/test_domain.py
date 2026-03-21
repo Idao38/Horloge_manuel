@@ -49,3 +49,21 @@ def test_app_state_display_mode_and_texts() -> None:
     state.set_display_mode(DisplayMode.COUNTDOWN)
     assert state.current_display_text().startswith("02:")
 
+
+def test_app_state_display_message() -> None:
+    state = AppState()
+    assert state.display_message == ""
+
+    state.set_display_message("Ligne 1\nLigne 2")
+    assert state.display_message == "Ligne 1\nLigne 2"
+
+    state.set_display_message("a\r\nb")
+    assert state.display_message == "a\nb"
+
+
+def test_app_state_display_message_right() -> None:
+    state = AppState()
+    assert state.display_message_right == ""
+    state.set_display_message_right("Note")
+    assert state.display_message_right == "Note"
+

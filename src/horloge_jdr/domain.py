@@ -88,9 +88,19 @@ class AppState:
     clock: ClockState = field(default_factory=ClockState)
     countdown: CountdownModel = field(default_factory=CountdownModel)
     display_mode: DisplayMode = DisplayMode.MANUAL_TIME
+    display_message: str = ""  # texte libre sous l'horloge, colonne gauche (~80 %)
+    display_message_right: str = ""  # colonne droite (~20 % de la largeur)
 
     def set_display_mode(self, mode: DisplayMode) -> None:
         self.display_mode = mode
+
+    def set_display_message(self, text: str) -> None:
+        """Définit le texte sous l'horloge ; normalise les fins de ligne Windows."""
+        self.display_message = str(text).replace("\r\n", "\n")
+
+    def set_display_message_right(self, text: str) -> None:
+        """Texte de la colonne droite sous l'horloge."""
+        self.display_message_right = str(text).replace("\r\n", "\n")
 
     def toggle_display_mode(self) -> None:
         if self.display_mode is DisplayMode.MANUAL_TIME:

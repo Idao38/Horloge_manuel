@@ -92,3 +92,13 @@ class HorlogeController:
         self.state.toggle_display_mode()
         self._notify_listeners()
 
+    def on_set_display_message(self, text: str) -> None:
+        """Met à jour le texte affiché sous l'horloge (fenêtre d'affichage)."""
+        self.state.set_display_message(text)
+        self._notify_listeners()
+
+    def on_set_display_message_right(self, text: str) -> None:
+        """Met à jour le texte de la colonne droite (~20 % de la largeur)."""
+        self.state.set_display_message_right(text)
+        self._notify_listeners()
+
