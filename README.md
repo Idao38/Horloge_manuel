@@ -36,59 +36,15 @@ Application de bureau (Python / Tkinter) pour afficher une **horloge manuelle** 
 - Si un **second moniteur** est détecté (via la bibliothèque `screeninfo`), la fenêtre d’afficheur tente de passer en **plein écran sur le second écran** ; la fenêtre de contrôle reste sur l’écran principal.
 - Sans `screeninfo`, sans second écran, ou en cas d’erreur : l’afficheur est **maximisé** sur l’écran principal.
 
-### Données
+## Données
 
 - **Aucune persistance** : à la fermeture, rien n’est sauvegardé sur le disque.
-
-## Architecture du code
-
-| Fichier | Rôle |
-|--------|------|
-| `src/horloge_jdr/time_model.py` | Modèle de temps (minutes dans la journée) et compteur de jours. |
-| `src/horloge_jdr/domain.py` | Domaine : `ClockState`, `CountdownModel`, `AppState`, `DisplayMode`. |
-| `src/horloge_jdr/controller.py` | `HorlogeController` : actions utilisateur et notifications aux vues. |
-| `src/horloge_jdr/app.py` | Interface Tkinter : `DisplayWindow`, `ControlWindow`, effet néon, placement multi-écran. |
-| `tests/test_time_model.py` | Tests sur le modèle de temps et les jours. |
-| `tests/test_domain.py` | Tests sur la logique de domaine (horloge, compte à rebours, messages). |
 
 ## Prérequis
 
 - **Windows** 10 ou 11 (64 bits) — environnement cible principal.
 - **Python 3.10+** pour le développement et la génération de l’exécutable.
 
-## Installation (développement)
-
-À la racine du dépôt :
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-Les dépendances incluent notamment **PyInstaller**, **pytest**, **Pillow**, **screeninfo** (détection des écrans pour le placement de la fenêtre d’affichage).
-
-## Lancer l’application
-
-```powershell
-python -m src.horloge_jdr.app
-```
-
-## Tests
-
-```powershell
-pytest
-```
-
-## Exécutable Windows (PyInstaller)
-
-À la racine du projet, avec l’environnement virtuel activé :
-
-```powershell
-pyinstaller "Horloge - Un jour de plus.spec"
-```
-
-#
 ## Licence
 
 Ce projet est sous **Creative Commons Attribution — Pas d’utilisation commerciale — Partage dans les mêmes conditions 4.0 International** ([**CC BY-NC-SA 4.0**](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.fr)).
