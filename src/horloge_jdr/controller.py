@@ -3,7 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, List
 
-from .domain import AppState, DisplayMode
+# Import adapté au contexte (package vs exécutable PyInstaller)
+if __package__ in (None, ""):
+    # Contexte script/gelé : modules plats dans le même dossier
+    from domain import AppState, DisplayMode  # type: ignore[import-not-found]
+else:
+    # Contexte package : src.horloge_jdr.domain
+    from .domain import AppState, DisplayMode
 
 
 StateListener = Callable[[AppState], None]

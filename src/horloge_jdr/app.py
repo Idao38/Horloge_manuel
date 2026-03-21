@@ -6,12 +6,13 @@ import sys
 import tkinter as tk
 from tkinter import ttk
 
-try:
-    # Exécution en tant que module de paquet (python -m src.horloge_jdr.app)
-    from .controller import HorlogeController
-except ImportError:  # pragma: no cover - utilisé surtout dans le .exe PyInstaller
-    # Exécution en script "plat" (dans l'exécutable PyInstaller)
+# Import du contrôleur adapté au contexte (package vs exécutable PyInstaller)
+if getattr(sys, "frozen", False) and (__package__ is None or __package__ == ""):
+    # Contexte exécutable : modules plats dans le même dossier qu'app.py
     from controller import HorlogeController
+else:
+    # Contexte package : exécution via python -m src.horloge_jdr.app
+    from .controller import HorlogeController
 
 
 def _get_icon_path() -> str | None:
@@ -94,7 +95,11 @@ class DisplayWindow(tk.Toplevel):
         self.display_frame = tk.Frame(self.main_frame, bg="black", bd=0, highlightthickness=0)
         self.display_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(10, 0))
 
-        from .domain import AppState  # import local pour éviter les cycles au chargement
+        # Import local pour éviter les cycles au chargement, avec fallback exécutable
+        try:
+            from .domain import AppState  # type: ignore[import-not-found]
+        except ImportError:  # pragma: no cover - exécutable PyInstaller
+            from domain import AppState  # type: ignore[import-not-found]
 
         initial_state = controller.state if isinstance(controller.state, AppState) else None
         initial_time = initial_state.current_display_text() if initial_state else "00:00"
@@ -227,11 +232,62 @@ class ControlWindow(tk.Toplevel):
 
         self.title("Contrôle - Horloge JDR")
         self.configure(bg="black")
-        # Taille minimale suffisante pour afficher tous les contrôles, bouton compris
-        self.minsize(600, 260)
+        # Taille minimale : aperçu 2e écran + boutons + compte à rebours + mode + fermer
+        self.minsize(600, 380)
 
         self.main_frame = tk.Frame(self, bg="black", bd=0, highlightthickness=0)
         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        try:
+            from .domain import AppState  # type: ignore[import-not-found]
+        except ImportError:  # pragma: no cover - exécutable PyInstaller
+            from domain import AppState  # type: ignore[import-not-found]
+
+        initial_state = controller.state if isinstance(controller.state, AppState) else None
+        initial_time = initial_state.current_display_text() if initial_state else "00:00"
+        initial_day = initial_state.current_day_text() if initial_state else "Jour 0"
+
+        preview_frame = tk.LabelFrame(
+            self.main_frame,
+            text="Aperçu (écran affichage)",
+            fg="white",
+            bg="black",
+            bd=1,
+            highlightthickness=0,
+        )
+        preview_frame.pack(fill=tk.X, pady=(0, 10))
+
+        self._preview_canvas = tk.Frame(
+            preview_frame,
+            bg="black",
+            bd=0,
+            highlightthickness=1,
+            highlightbackground="#660000",
+            height=110,
+        )
+        self._preview_canvas.pack(fill=tk.X, padx=6, pady=6)
+        self._preview_canvas.pack_propagate(False)
+
+        self._preview_time_label = tk.Label(
+            self._preview_canvas,
+            text=initial_time,
+            fg="red",
+            bg="black",
+            anchor="center",
+        )
+        self._preview_time_label.pack(fill=tk.BOTH, expand=True)
+
+        self._preview_day_label = tk.Label(
+            self._preview_canvas,
+            text=initial_day,
+            fg="red",
+            bg="black",
+            anchor="ne",
+        )
+        self._preview_day_label.place(relx=1.0, rely=0.0, anchor="ne", x=-8, y=6)
+
+        self._preview_canvas.bind("<Configure>", self._on_preview_resize)
+        self.after_idle(self._update_preview_fonts)
 
         style = ttk.Style(self)
         if "clam" in style.theme_names():
@@ -371,12 +427,31 @@ class ControlWindow(tk.Toplevel):
         else:
             self.controller.on_set_display_manual_time()
 
+    def _on_preview_resize(self, event: tk.Event) -> None:  # type: ignore[type-arg]
+        self.after_idle(self._update_preview_fonts)
+
+    def _update_preview_fonts(self) -> None:
+        w = max(self._preview_canvas.winfo_width(), 1)
+        h = max(self._preview_canvas.winfo_height(), 1)
+        base = min(w // 5, h // 2)
+        font_size = max(base, 14)
+        try:
+            self._preview_time_label.config(font=("Courier New", font_size, "bold"))
+            self._preview_day_label.config(font=("Courier New", max(font_size // 4, 8), "bold"))
+        except tk.TclError:
+            pass
+
     def _on_state_changed(self, state) -> None:
         # Synchroniser le radio bouton avec l'état global si besoin
         if state.display_mode.name.lower().startswith("countdown"):
             self.display_mode_var.set("countdown")
         else:
             self.display_mode_var.set("time")
+        try:
+            self._preview_time_label.config(text=state.current_display_text())
+            self._preview_day_label.config(text=state.current_day_text())
+        except tk.TclError:
+            pass
 
     def _on_close(self) -> None:
         # Masquer la fenêtre de contrôle mais ne pas la détruire,
@@ -431,7 +506,7 @@ def main() -> None:
 
     # Placer la fenêtre de contrôle de manière raisonnable sur l'écran principal
     # Hauteur augmentée pour que tous les contrôles soient visibles sans redimensionner.
-    control.geometry("600x260+100+100")
+    control.geometry("600x400+100+100")
 
     def _tick() -> None:
         controller.tick_countdown()

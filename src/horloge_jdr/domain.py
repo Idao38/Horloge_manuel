@@ -3,7 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
-from .time_model import DayCounter, TimeModel
+# Import adapté au contexte (package vs exécutable PyInstaller)
+if __package__ in (None, ""):
+    # Contexte script/gelé : modules plats dans le même dossier
+    from time_model import DayCounter, TimeModel  # type: ignore[import-not-found]
+else:
+    # Contexte package : src.horloge_jdr.time_model
+    from .time_model import DayCounter, TimeModel
 
 
 class DisplayMode(str, Enum):
