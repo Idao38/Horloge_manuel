@@ -4,8 +4,6 @@
 
 Application de bureau (Python / Tkinter) pour afficher une **horloge manuelle** et un **compteur de jours** lors des parties de JDR. L’affichage est pensé pour être projeté ou montré aux joueurs, avec une fenêtre de contrôle séparée pour le meneur.
 
-**Version actuelle : 1.0.0** — le numéro est défini dans `src/horloge_jdr/version.py` (à synchroniser avec `pyproject.toml` lors d’une nouvelle release). Les titres des fenêtres affichent `v1.0.0`.
-
 ## Fonctionnalités
 
 ### Affichage principal
