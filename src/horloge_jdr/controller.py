@@ -98,7 +98,12 @@ class HorlogeController:
         self._notify_listeners()
 
     def on_set_display_message_right(self, text: str) -> None:
-        """Met à jour le texte de la colonne droite (~20 % de la largeur)."""
+        """Met à jour le texte de la colonne droite."""
         self.state.set_display_message_right(text)
+        self._notify_listeners()
+
+    def on_set_text_column_ratio(self, ratio: float) -> None:
+        """Met à jour le ratio largeur colonne gauche (0.1–0.9)."""
+        self.state.set_text_column_ratio(ratio)
         self._notify_listeners()
 

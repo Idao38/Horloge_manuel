@@ -5,11 +5,32 @@ from __future__ import annotations
 from dataclasses import dataclass
 import tkinter as tk
 
-# Texte libre sous l'horloge : style terminal / Matrix
-MATRIX_GREEN = "#00FF41"
-MATRIX_EDITOR_BG = "#030803"
-MATRIX_EDITOR_BORDER = "#2d6a3d"
-MATRIX_SELECT_BG = "#003311"
+from .theme import (
+    MATRIX_EDITOR_BG,
+    MATRIX_EDITOR_BORDER,
+    MATRIX_GREEN,
+    MATRIX_SELECT_BG,
+    get_matrix_font_family,
+)
+
+# Réexport pour compatibilité
+__all__ = [
+    "MATRIX_GREEN",
+    "MATRIX_EDITOR_BG",
+    "MATRIX_EDITOR_BORDER",
+    "MATRIX_SELECT_BG",
+    "LEFT_TEXT_MARGIN_REL",
+    "GAP_TEXT_COLUMNS_REL",
+    "RIGHT_TEXT_RELWIDTH",
+    "LEFT_TEXT_RELWIDTH_BOTH",
+    "MATRIX_MIN_FONT",
+    "matrix_font",
+    "fit_matrix_label_to_height",
+    "ClockLayoutParams",
+    "PREVIEW_LAYOUT_PARAMS",
+    "DISPLAY_LAYOUT_PARAMS",
+    "apply_clock_layout",
+]
 
 # Colonnes sous l'horloge : ~80 % gauche / 20 % droite (avec marges)
 LEFT_TEXT_MARGIN_REL = 0.01
@@ -22,8 +43,9 @@ MATRIX_MIN_FONT = 5
 
 
 def matrix_font(size: int) -> tuple[str, int, str]:
-    """Police monospace type terminal ; Consolas est généralement disponible sous Windows."""
-    return ("Consolas", max(size, MATRIX_MIN_FONT), "normal")
+    """Police monospace type terminal ; priorité aux polices à zéro distinct (0 vs 8)."""
+    family = get_matrix_font_family()
+    return (family, max(size, MATRIX_MIN_FONT), "normal")
 
 
 def fit_matrix_label_to_height(
@@ -106,9 +128,11 @@ def apply_clock_layout(
     message_right_visible: bool,
     last_fit_key: tuple[object, ...] | None,
     params: ClockLayoutParams = DISPLAY_LAYOUT_PARAMS,
+    left_column_ratio: float | None = None,
 ) -> tuple[object, ...] | None:
     """
     Applique la mise en page commune (heure, jour, colonnes Matrix).
+    left_column_ratio: part gauche (0.1–0.9) ; si None, utilise les constantes par défaut.
     Retourne le fit_key mis à jour pour éviter les recalculs inutiles.
     """
     root.update_idletasks()
@@ -128,6 +152,14 @@ def apply_clock_layout(
         message_right_label.place_forget()
         return None
 
+    ratio = (
+        max(0.1, min(0.9, left_column_ratio))
+        if left_column_ratio is not None
+        else LEFT_TEXT_RELWIDTH_BOTH
+    )
+    right_relwidth = 1.0 - LEFT_TEXT_MARGIN_REL - GAP_TEXT_COLUMNS_REL - ratio
+    left_relwidth = ratio
+
     txt_l = message_label.cget("text") or ""
     txt_r = message_right_label.cget("text") or ""
     fit_key = (
@@ -137,6 +169,7 @@ def apply_clock_layout(
         txt_r,
         message_left_visible,
         message_right_visible,
+        round(ratio, 3),
     )
     if fit_key == last_fit_key:
         return last_fit_key
@@ -153,7 +186,7 @@ def apply_clock_layout(
 
     if message_left_visible:
         wl = max(
-            int(width * (LEFT_TEXT_RELWIDTH_BOTH if both else 0.98) - params.wraplength_left_subtract),
+            int(width * (left_relwidth if both else 0.98) - params.wraplength_left_subtract),
             params.wraplength_left_min,
         )
         if both:
@@ -161,7 +194,7 @@ def apply_clock_layout(
                 relx=LEFT_TEXT_MARGIN_REL,
                 rely=msg_rely,
                 anchor="nw",
-                relwidth=LEFT_TEXT_RELWIDTH_BOTH,
+                relwidth=left_relwidth,
             )
         else:
             message_label.place(relx=LEFT_TEXT_MARGIN_REL, rely=msg_rely, anchor="nw", relwidth=0.98)
@@ -174,13 +207,13 @@ def apply_clock_layout(
         )
 
     if message_right_visible:
-        wr = max(int(width * RIGHT_TEXT_RELWIDTH - params.wraplength_right_subtract), params.wraplength_right_min)
+        wr = max(int(width * right_relwidth - params.wraplength_right_subtract), params.wraplength_right_min)
         relx_r = (
-            LEFT_TEXT_MARGIN_REL + LEFT_TEXT_RELWIDTH_BOTH + GAP_TEXT_COLUMNS_REL
+            LEFT_TEXT_MARGIN_REL + left_relwidth + GAP_TEXT_COLUMNS_REL
             if both
-            else 1.0 - RIGHT_TEXT_RELWIDTH - LEFT_TEXT_MARGIN_REL
+            else 1.0 - right_relwidth - LEFT_TEXT_MARGIN_REL
         )
-        message_right_label.place(relx=relx_r, rely=msg_rely, anchor="nw", relwidth=RIGHT_TEXT_RELWIDTH)
+        message_right_label.place(relx=relx_r, rely=msg_rely, anchor="nw", relwidth=right_relwidth)
         fit_matrix_label_to_height(
             root,
             message_right_label,

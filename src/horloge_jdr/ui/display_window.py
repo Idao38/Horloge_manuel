@@ -12,6 +12,7 @@ from ..controller import HorlogeController
 from ..version import __version__ as APP_VERSION
 from .layout import DISPLAY_LAYOUT_PARAMS, MATRIX_GREEN, apply_clock_layout
 from .neon import NeonFlickerEffect
+from .theme import BACKGROUND, HELP_FG
 
 if TYPE_CHECKING:
     from .control_window import ControlWindow
@@ -48,7 +49,7 @@ class DisplayWindow(tk.Toplevel):
         self._control_window = control_window
 
         self.title(f"Affichage - Horloge JDR v{APP_VERSION}")
-        self.configure(bg="black")
+        self.configure(bg=BACKGROUND)
         self.minsize(300, 150)
 
         icon_path = _get_icon_path()
@@ -58,23 +59,23 @@ class DisplayWindow(tk.Toplevel):
             except Exception:
                 pass
 
-        self.main_frame = tk.Frame(self, bg="black", bd=0, highlightthickness=0)
+        self.main_frame = tk.Frame(self, bg=BACKGROUND, bd=0, highlightthickness=0)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        help_frame = tk.Frame(self.main_frame, bg="black", bd=0, highlightthickness=0)
+        help_frame = tk.Frame(self.main_frame, bg=BACKGROUND, bd=0, highlightthickness=0)
         help_frame.pack(fill=tk.X, padx=10, pady=(10, 4))
 
         self.help_label = tk.Label(
             help_frame,
             text="Ctrl + C : rouvrir la fenêtre de contrôle",
-            fg="red",
-            bg="black",
+            fg=HELP_FG,
+            bg=BACKGROUND,
             anchor="w",
             font=("Courier New", 10, "bold"),
         )
         self.help_label.pack(side=tk.LEFT, anchor="w")
 
-        self.display_frame = tk.Frame(self.main_frame, bg="black", bd=0, highlightthickness=0)
+        self.display_frame = tk.Frame(self.main_frame, bg=BACKGROUND, bd=0, highlightthickness=0)
         self.display_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
 
         initial_state = controller.state if isinstance(controller.state, AppState) else None
@@ -87,7 +88,7 @@ class DisplayWindow(tk.Toplevel):
             self.display_frame,
             text=initial_time,
             fg="red",
-            bg="black",
+            bg=BACKGROUND,
             anchor="center",
         )
 
@@ -95,7 +96,7 @@ class DisplayWindow(tk.Toplevel):
             self.display_frame,
             text=initial_day,
             fg="red",
-            bg="black",
+            bg=BACKGROUND,
             anchor="ne",
         )
 
@@ -103,7 +104,7 @@ class DisplayWindow(tk.Toplevel):
             self.display_frame,
             text=initial_message,
             fg=MATRIX_GREEN,
-            bg="black",
+            bg=BACKGROUND,
             anchor="nw",
             justify="left",
         )
@@ -112,7 +113,7 @@ class DisplayWindow(tk.Toplevel):
             self.display_frame,
             text=initial_message_right,
             fg=MATRIX_GREEN,
-            bg="black",
+            bg=BACKGROUND,
             anchor="nw",
             justify="left",
         )
@@ -178,6 +179,8 @@ class DisplayWindow(tk.Toplevel):
             return
         self._layout_busy = True
         try:
+            state = self.controller.state
+            ratio = state.text_column_ratio if isinstance(state, AppState) else None
             self._last_message_fit_key = apply_clock_layout(
                 self,
                 self.display_frame,
@@ -189,6 +192,7 @@ class DisplayWindow(tk.Toplevel):
                 message_right_visible=self._message_right_visible,
                 last_fit_key=self._last_message_fit_key,
                 params=DISPLAY_LAYOUT_PARAMS,
+                left_column_ratio=ratio,
             )
         finally:
             self._layout_busy = False

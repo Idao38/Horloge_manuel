@@ -67,3 +67,17 @@ def test_app_state_display_message_right() -> None:
     state.set_display_message_right("Note")
     assert state.display_message_right == "Note"
 
+
+def test_app_state_text_column_ratio() -> None:
+    state = AppState()
+    assert state.text_column_ratio == 0.8
+
+    state.set_text_column_ratio(0.6)
+    assert state.text_column_ratio == 0.6
+
+    state.set_text_column_ratio(2.0)  # borné à 0.9
+    assert state.text_column_ratio == 0.9
+
+    state.set_text_column_ratio(0.0)  # borné à 0.1
+    assert state.text_column_ratio == 0.1
+

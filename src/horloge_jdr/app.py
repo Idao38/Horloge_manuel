@@ -29,7 +29,7 @@ def main() -> None:
 
     position_display_window_on_secondary_monitor(root, display)
 
-    control.geometry("600x620+100+100")
+    control.geometry("600x700+100+100")
 
     def _tick() -> None:
         controller.tick_countdown()

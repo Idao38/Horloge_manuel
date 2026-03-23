@@ -15,6 +15,19 @@ from .layout import (
     MATRIX_SELECT_BG,
     PREVIEW_LAYOUT_PARAMS,
     apply_clock_layout,
+    matrix_font,
+)
+from .theme import (
+    BACKGROUND,
+    BTN_BG,
+    LABEL_FG,
+    PREVIEW_BORDER,
+    RADIO_SELECT,
+    SEGMENT_ACTIVE_BG,
+    SEGMENT_INACTIVE_BG,
+    SPINBOX_BG,
+    SPINBOX_FG,
+    SPINBOX_INSERT,
 )
 
 
@@ -27,10 +40,10 @@ class ControlWindow(tk.Toplevel):
         self.controller = controller
 
         self.title(f"Contrôle - Horloge JDR v{APP_VERSION}")
-        self.configure(bg="black")
-        self.minsize(600, 600)
+        self.configure(bg=BACKGROUND)
+        self.minsize(600, 620)
 
-        self.main_frame = tk.Frame(self, bg="black", bd=0, highlightthickness=0)
+        self.main_frame = tk.Frame(self, bg=BACKGROUND, bd=0, highlightthickness=0)
         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         initial_state = controller.state if isinstance(controller.state, AppState) else None
@@ -41,9 +54,9 @@ class ControlWindow(tk.Toplevel):
 
         preview_frame = tk.LabelFrame(
             self.main_frame,
-            text="Aperçu (écran affichage)",
-            fg="white",
-            bg="black",
+            text=" Aperçu (écran affichage) ",
+            fg=LABEL_FG,
+            bg=BACKGROUND,
             bd=1,
             highlightthickness=0,
         )
@@ -51,11 +64,11 @@ class ControlWindow(tk.Toplevel):
 
         self._preview_canvas = tk.Frame(
             preview_frame,
-            bg="black",
+            bg=BACKGROUND,
             bd=0,
-            highlightthickness=1,
-            highlightbackground="#660000",
-            height=160,
+            highlightthickness=2,
+            highlightbackground=PREVIEW_BORDER,
+            height=180,
         )
         self._preview_canvas.pack(fill=tk.X, padx=6, pady=6)
         self._preview_canvas.pack_propagate(False)
@@ -64,7 +77,7 @@ class ControlWindow(tk.Toplevel):
             self._preview_canvas,
             text=initial_time,
             fg="red",
-            bg="black",
+            bg=BACKGROUND,
             anchor="center",
         )
 
@@ -72,7 +85,7 @@ class ControlWindow(tk.Toplevel):
             self._preview_canvas,
             text=initial_day,
             fg="red",
-            bg="black",
+            bg=BACKGROUND,
             anchor="ne",
         )
 
@@ -80,7 +93,7 @@ class ControlWindow(tk.Toplevel):
             self._preview_canvas,
             text=initial_message,
             fg=MATRIX_GREEN,
-            bg="black",
+            bg=BACKGROUND,
             anchor="nw",
             justify="left",
         )
@@ -89,7 +102,7 @@ class ControlWindow(tk.Toplevel):
             self._preview_canvas,
             text=initial_message_right,
             fg=MATRIX_GREEN,
-            bg="black",
+            bg=BACKGROUND,
             anchor="nw",
             justify="left",
         )
@@ -109,51 +122,80 @@ class ControlWindow(tk.Toplevel):
             style.theme_use("clam")
         style.configure(
             "Dark.TButton",
-            foreground="white",
-            background="#222222",
-            padding=6,
+            foreground=LABEL_FG,
+            background=BTN_BG,
+            padding=(12, 8),
         )
+        style.map("Dark.TButton", background=[("active", "#444444")])
 
-        buttons_frame = tk.Frame(self.main_frame, bg="black", bd=0, highlightthickness=0)
-        buttons_frame.pack(fill=tk.X, pady=(0, 10))
+        # Groupe Temps (h/min)
+        time_frame = tk.LabelFrame(
+            self.main_frame,
+            text=" Temps ",
+            fg=LABEL_FG,
+            bg=BACKGROUND,
+            bd=1,
+            highlightthickness=0,
+        )
+        time_frame.pack(fill=tk.X, pady=(0, 6))
+        time_buttons = tk.Frame(time_frame, bg=BACKGROUND, bd=0, highlightthickness=0)
+        time_buttons.pack(fill=tk.X, padx=6, pady=(2, 6))
+        self._add_button(time_buttons, "-1 h", self.controller.on_minus_hour)
+        self._add_button(time_buttons, "+1 h", self.controller.on_plus_hour)
+        self._add_button(time_buttons, "-10 min", self.controller.on_minus_10min)
+        self._add_button(time_buttons, "+10 min", self.controller.on_plus_10min)
 
-        self._add_button(buttons_frame, "+1 h", self.controller.on_plus_hour)
-        self._add_button(buttons_frame, "-1 h", self.controller.on_minus_hour)
-        self._add_button(buttons_frame, "+10 min", self.controller.on_plus_10min)
-        self._add_button(buttons_frame, "-10 min", self.controller.on_minus_10min)
-        self._add_button(buttons_frame, "+1 j", self.controller.on_plus_day)
-        self._add_button(buttons_frame, "-1 j", self.controller.on_minus_day)
+        # Groupe Jours
+        day_frame = tk.LabelFrame(
+            self.main_frame,
+            text=" Jours ",
+            fg=LABEL_FG,
+            bg=BACKGROUND,
+            bd=1,
+            highlightthickness=0,
+        )
+        day_frame.pack(fill=tk.X, pady=(0, 10))
+        day_buttons = tk.Frame(day_frame, bg=BACKGROUND, bd=0, highlightthickness=0)
+        day_buttons.pack(fill=tk.X, padx=6, pady=(2, 6))
+        self._add_button(day_buttons, "-1 j", self.controller.on_minus_day)
+        self._add_button(day_buttons, "+1 j", self.controller.on_plus_day)
 
         message_frame = tk.LabelFrame(
             self.main_frame,
-            text="Textes sous l'horloge (gauche ~80 % / droite ~20 %)",
-            fg="white",
-            bg="black",
+            text=" Textes sous l'horloge (glisser le séparateur pour ajuster) ",
+            fg=LABEL_FG,
+            bg=BACKGROUND,
             bd=1,
             highlightthickness=0,
         )
         message_frame.pack(fill=tk.X, pady=(0, 10))
-        message_frame.grid_columnconfigure(0, weight=8)
-        message_frame.grid_columnconfigure(1, weight=2)
-        message_frame.grid_rowconfigure(0, weight=1)
+        message_frame.columnconfigure(0, weight=1)
+        message_frame.rowconfigure(0, weight=1)
 
-        self._message_editor_left_wrap = tk.Frame(
-            message_frame,
+        initial_ratio = initial_state.text_column_ratio if initial_state else 0.8
+        weight_left = max(1, int(initial_ratio * 10))
+        weight_right = max(1, 10 - weight_left)
+
+        self._text_paned = ttk.PanedWindow(message_frame, orient=tk.HORIZONTAL)
+        self._text_paned.grid(row=0, column=0, sticky="nsew", padx=6, pady=(6, 4))
+
+        self._pane_left = tk.Frame(
+            self._text_paned,
             bg=MATRIX_EDITOR_BG,
             highlightthickness=1,
             highlightbackground=MATRIX_EDITOR_BORDER,
             bd=0,
         )
-        self._message_editor_left_wrap.grid(row=0, column=0, sticky="nsew", padx=(6, 3), pady=(6, 4))
+        self._text_paned.add(self._pane_left, weight=weight_left)
 
         self._message_editor_left = tk.Text(
-            self._message_editor_left_wrap,
+            self._pane_left,
             height=4,
             wrap="word",
             fg=MATRIX_GREEN,
             bg=MATRIX_EDITOR_BG,
             insertbackground=MATRIX_GREEN,
-            font=("Consolas", 10),
+            font=matrix_font(10),
             relief=tk.FLAT,
             padx=6,
             pady=4,
@@ -162,24 +204,24 @@ class ControlWindow(tk.Toplevel):
         )
         self._message_editor_left.pack(fill=tk.BOTH, expand=True)
 
-        self._message_editor_right_wrap = tk.Frame(
-            message_frame,
+        self._pane_right = tk.Frame(
+            self._text_paned,
             bg=MATRIX_EDITOR_BG,
             highlightthickness=1,
             highlightbackground=MATRIX_EDITOR_BORDER,
             bd=0,
         )
-        self._message_editor_right_wrap.grid(row=0, column=1, sticky="nsew", padx=(3, 6), pady=(6, 4))
+        self._text_paned.add(self._pane_right, weight=weight_right)
 
         self._message_editor_right = tk.Text(
-            self._message_editor_right_wrap,
+            self._pane_right,
             height=4,
-            width=22,
+            width=12,
             wrap="word",
             fg=MATRIX_GREEN,
             bg=MATRIX_EDITOR_BG,
             insertbackground=MATRIX_GREEN,
-            font=("Consolas", 10),
+            font=matrix_font(10),
             relief=tk.FLAT,
             padx=6,
             pady=4,
@@ -193,19 +235,23 @@ class ControlWindow(tk.Toplevel):
         if initial_message_right:
             self._message_editor_right.insert("1.0", initial_message_right)
 
+        self._paned_ratio_debounce: str | None = None
+        self._pane_left.bind("<Configure>", self._on_text_paned_configure)
+        self._pane_right.bind("<Configure>", self._on_text_paned_configure)
+
         apply_msg_btn = ttk.Button(
             message_frame,
             text="Appliquer les textes sur l'écran",
             style="Dark.TButton",
             command=self._on_apply_display_message,
         )
-        apply_msg_btn.grid(row=1, column=0, columnspan=2, sticky="ew", padx=6, pady=(4, 6))
+        apply_msg_btn.grid(row=1, column=0, sticky="ew", padx=6, pady=(4, 6))
 
         countdown_frame = tk.LabelFrame(
             self.main_frame,
-            text="Compte à rebours",
-            fg="white",
-            bg="black",
+            text=" Compte à rebours ",
+            fg=LABEL_FG,
+            bg=BACKGROUND,
             bd=1,
             highlightthickness=0,
         )
@@ -213,7 +259,7 @@ class ControlWindow(tk.Toplevel):
 
         self.countdown_minutes_var = tk.StringVar(value="5")
 
-        minutes_label = tk.Label(countdown_frame, text="Minutes :", fg="white", bg="black")
+        minutes_label = tk.Label(countdown_frame, text="Minutes :", fg=LABEL_FG, bg=BACKGROUND)
         minutes_label.pack(side=tk.LEFT, padx=(5, 2), pady=5)
 
         self.minutes_entry = tk.Spinbox(
@@ -222,6 +268,12 @@ class ControlWindow(tk.Toplevel):
             to=999,
             textvariable=self.countdown_minutes_var,
             width=5,
+            bg=SPINBOX_BG,
+            fg=SPINBOX_FG,
+            insertbackground=SPINBOX_INSERT,
+            highlightthickness=1,
+            highlightbackground=MATRIX_EDITOR_BORDER,
+            buttonbackground=BTN_BG,
         )
         self.minutes_entry.pack(side=tk.LEFT, padx=2, pady=5)
 
@@ -251,39 +303,49 @@ class ControlWindow(tk.Toplevel):
 
         mode_frame = tk.LabelFrame(
             self.main_frame,
-            text="Mode d'affichage",
-            fg="white",
-            bg="black",
+            text=" Mode d'affichage ",
+            fg=LABEL_FG,
+            bg=BACKGROUND,
             bd=1,
             highlightthickness=0,
         )
         mode_frame.pack(fill=tk.X, pady=(0, 10))
 
         self.display_mode_var = tk.StringVar(value="time")
+        segment_frame = tk.Frame(mode_frame, bg=BACKGROUND, bd=0, highlightthickness=0)
+        segment_frame.pack(fill=tk.X, padx=6, pady=(2, 6))
 
-        time_radio = tk.Radiobutton(
-            mode_frame,
-            text="Heure manuelle",
-            variable=self.display_mode_var,
-            value="time",
-            command=self._on_display_mode_changed,
-            fg="white",
-            bg="black",
-            selectcolor="#222222",
+        self._btn_time = tk.Button(
+            segment_frame,
+            text="Heure",
+            fg=LABEL_FG,
+            bg=SEGMENT_ACTIVE_BG,
+            activebackground=SEGMENT_ACTIVE_BG,
+            activeforeground=LABEL_FG,
+            relief=tk.SUNKEN,
+            bd=1,
+            padx=16,
+            pady=6,
+            cursor="hand2",
+            command=self._on_mode_time,
         )
-        time_radio.pack(side=tk.LEFT, padx=5, pady=5)
+        self._btn_time.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 1))
 
-        countdown_radio = tk.Radiobutton(
-            mode_frame,
+        self._btn_countdown = tk.Button(
+            segment_frame,
             text="Compte à rebours",
-            variable=self.display_mode_var,
-            value="countdown",
-            command=self._on_display_mode_changed,
-            fg="white",
-            bg="black",
-            selectcolor="#222222",
+            fg=LABEL_FG,
+            bg=SEGMENT_INACTIVE_BG,
+            activebackground=SEGMENT_ACTIVE_BG,
+            activeforeground=LABEL_FG,
+            relief=tk.RAISED,
+            bd=1,
+            padx=16,
+            pady=6,
+            cursor="hand2",
+            command=self._on_mode_countdown,
         )
-        countdown_radio.pack(side=tk.LEFT, padx=5, pady=5)
+        self._btn_countdown.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(1, 0))
 
         quit_btn = ttk.Button(
             self.main_frame,
@@ -307,18 +369,51 @@ class ControlWindow(tk.Toplevel):
             minutes = 0
         self.controller.on_start_countdown(minutes)
 
-    def _on_display_mode_changed(self) -> None:
-        value = self.display_mode_var.get()
-        if value == "countdown":
-            self.controller.on_set_display_countdown()
-        else:
-            self.controller.on_set_display_manual_time()
+    def _on_mode_time(self) -> None:
+        self.display_mode_var.set("time")
+        self.controller.on_set_display_manual_time()
+        self._update_mode_segment_visual()
+
+    def _on_mode_countdown(self) -> None:
+        self.display_mode_var.set("countdown")
+        self.controller.on_set_display_countdown()
+        self._update_mode_segment_visual()
+
+    def _update_mode_segment_visual(self) -> None:
+        """Met à jour l'apparence du segmented control selon le mode actif."""
+        is_time = self.display_mode_var.get() == "time"
+        self._btn_time.config(
+            bg=SEGMENT_ACTIVE_BG if is_time else SEGMENT_INACTIVE_BG,
+            relief=tk.SUNKEN if is_time else tk.RAISED,
+        )
+        self._btn_countdown.config(
+            bg=SEGMENT_ACTIVE_BG if not is_time else SEGMENT_INACTIVE_BG,
+            relief=tk.SUNKEN if not is_time else tk.RAISED,
+        )
 
     def _on_apply_display_message(self) -> None:
         left = self._message_editor_left.get("1.0", "end-1c")
         right = self._message_editor_right.get("1.0", "end-1c")
         self.controller.on_set_display_message(left)
         self.controller.on_set_display_message_right(right)
+
+    def _on_text_paned_configure(self, event: tk.Event) -> None:  # type: ignore[type-arg]
+        """Détecte le redimensionnement des panneaux (glissement du séparateur) et met à jour le ratio."""
+        if self._paned_ratio_debounce is not None:
+            self.after_cancel(self._paned_ratio_debounce)
+        self._paned_ratio_debounce = self.after(100, self._update_ratio_from_paned)
+
+    def _update_ratio_from_paned(self) -> None:
+        self._paned_ratio_debounce = None
+        try:
+            w_left = self._pane_left.winfo_width()
+            w_total = self._text_paned.winfo_width()
+            if w_total < 10:
+                return
+            ratio = w_left / float(w_total)
+            self.controller.on_set_text_column_ratio(ratio)
+        except (tk.TclError, ZeroDivisionError):
+            pass
 
     def _on_preview_canvas_configure(self, event: tk.Event) -> None:  # type: ignore[type-arg]
         if event.widget != self._preview_canvas:
@@ -337,6 +432,8 @@ class ControlWindow(tk.Toplevel):
             return
         self._preview_layout_busy = True
         try:
+            state = self.controller.state
+            ratio = state.text_column_ratio if isinstance(state, AppState) else None
             self._last_preview_fit_key = apply_clock_layout(
                 self,
                 self._preview_canvas,
@@ -348,6 +445,7 @@ class ControlWindow(tk.Toplevel):
                 message_right_visible=self._preview_message_right_visible,
                 last_fit_key=self._last_preview_fit_key,
                 params=PREVIEW_LAYOUT_PARAMS,
+                left_column_ratio=ratio,
             )
         except tk.TclError:
             pass
@@ -359,6 +457,7 @@ class ControlWindow(tk.Toplevel):
             self.display_mode_var.set("countdown")
         else:
             self.display_mode_var.set("time")
+        self._update_mode_segment_visual()
         try:
             self._preview_time_label.config(text=state.current_display_text())
             self._preview_day_label.config(text=state.current_day_text())

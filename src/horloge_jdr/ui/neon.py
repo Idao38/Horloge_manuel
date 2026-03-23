@@ -5,6 +5,8 @@ from __future__ import annotations
 import random
 import tkinter as tk
 
+from .theme import NEON_FLICKER_COLORS
+
 
 class NeonFlickerEffect:
     """Effet de clignotement type néon pour un label Tkinter."""
@@ -32,8 +34,7 @@ class NeonFlickerEffect:
         self._schedule_tick()
 
     def _start_flicker(self) -> None:
-        sequence = ["#330000", "#880000", "#330000", "#FF0000"]
-        self._flicker_step(sequence, 0)
+        self._flicker_step(NEON_FLICKER_COLORS, 0)
 
     def _flicker_step(self, colors: list[str], index: int) -> None:
         if index >= len(colors):

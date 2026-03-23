@@ -88,8 +88,9 @@ class AppState:
     clock: ClockState = field(default_factory=ClockState)
     countdown: CountdownModel = field(default_factory=CountdownModel)
     display_mode: DisplayMode = DisplayMode.MANUAL_TIME
-    display_message: str = ""  # texte libre sous l'horloge, colonne gauche (~80 %)
-    display_message_right: str = ""  # colonne droite (~20 % de la largeur)
+    display_message: str = ""  # texte libre sous l'horloge, colonne gauche
+    display_message_right: str = ""  # colonne droite
+    text_column_ratio: float = 0.8  # part gauche (0.1–0.9), droite = 1 - ratio
 
     def set_display_mode(self, mode: DisplayMode) -> None:
         self.display_mode = mode
@@ -101,6 +102,10 @@ class AppState:
     def set_display_message_right(self, text: str) -> None:
         """Texte de la colonne droite sous l'horloge."""
         self.display_message_right = str(text).replace("\r\n", "\n")
+
+    def set_text_column_ratio(self, ratio: float) -> None:
+        """Ratio largeur colonne gauche (0.1–0.9). Droite = 1 - ratio."""
+        self.text_column_ratio = max(0.1, min(0.9, float(ratio)))
 
     def toggle_display_mode(self) -> None:
         if self.display_mode is DisplayMode.MANUAL_TIME:
