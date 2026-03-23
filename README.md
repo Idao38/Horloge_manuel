@@ -1,6 +1,6 @@
 # Horloge — Un jour de plus
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-1.0.1-blue)
 
 Application de bureau (Python / Tkinter) pour afficher une **horloge manuelle** et un **compteur de jours** lors des parties de JDR. L’affichage est pensé pour être projeté ou montré aux joueurs, avec une fenêtre de contrôle séparée pour le meneur.
 
@@ -38,6 +38,23 @@ Application de bureau (Python / Tkinter) pour afficher une **horloge manuelle** 
 
 - **Aucune persistance** : à la fermeture, rien n’est sauvegardé sur le disque.
 
+## Architecture du code
+
+| Fichier | Rôle |
+|--------|------|
+| `src/horloge_jdr/time_model.py` | Modèle de temps (minutes dans la journée) et compteur de jours. |
+| `src/horloge_jdr/domain.py` | Domaine : `ClockState`, `CountdownModel`, `AppState`, `DisplayMode`. |
+| `src/horloge_jdr/controller.py` | `HorlogeController` : actions utilisateur et notifications aux vues. |
+| `src/horloge_jdr/app.py` | Point d'entrée `main()` et assemblage des fenêtres. |
+| `src/horloge_jdr/ui/display_window.py` | Fenêtre d'affichage (heure, jour, texte Matrix). |
+| `src/horloge_jdr/ui/control_window.py` | Fenêtre de contrôle (aperçu, boutons, compte à rebours, mode). |
+| `src/horloge_jdr/ui/layout.py` | Mise en page commune (layout horloge + colonnes Matrix). |
+| `src/horloge_jdr/ui/neon.py` | Effet de clignotement néon pour les labels. |
+| `src/horloge_jdr/ui/screen_position.py` | Placement de la fenêtre sur multi-écrans. |
+| `tests/test_time_model.py` | Tests sur le modèle de temps et les jours. |
+| `tests/test_domain.py` | Tests sur la logique de domaine (horloge, compte à rebours, messages). |
+| `tests/test_controller.py` | Tests sur le contrôleur (actions, notifications). |
+| `tests/test_version.py` | Tests sur la version (semver, cohérence avec pyproject.toml). |
 ## Prérequis
 
 - **Windows** 10 ou 11 (64 bits) — environnement cible principal.
