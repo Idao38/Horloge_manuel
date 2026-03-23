@@ -4,8 +4,6 @@
 
 Application de bureau (Python / Tkinter) pour afficher une **horloge manuelle** et un **compteur de jours** lors des parties de JDR. L'affichage est pensé pour être projeté ou montré aux joueurs, avec une fenêtre de contrôle séparée pour le meneur.
 
-**Version actuelle : 1.0.1** — le numéro est défini dans `src/horloge_jdr/version.py` (à synchroniser avec `pyproject.toml` lors d'une nouvelle release).
-
 ## Fonctionnalités
 
 ### Affichage principal
@@ -15,21 +13,19 @@ Application de bureau (Python / Tkinter) pour afficher une **horloge manuelle** 
 - Compteur de jours **Jour N** en haut à droite de l'écran d'affichage.
 - Style **chiffres rouges sur fond noir**, avec un **léger clignotement** type néon sur l'heure et le jour.
 - **Texte libre sous l'horloge** (style terminal / Matrix, vert sur noir) :
-  - **Colonne gauche** (~80 % de la largeur) et **colonne droite** (~20 %), pour notes, listes, etc.
+  - **Colonne gauche**, **colonne droite** redimentionnable à la volé, pour notes, listes, etc.
   - Texte **redimensionné automatiquement** pour tenir dans la zone disponible.
 - Fenêtre d'affichage **redimensionnable** ; polices et mise en page **adaptatives**.
-- Icône de fenêtre : `assets/clock_icon.ico` (si présent), y compris dans l'exécutable PyInstaller.
 
 ### Fenêtre de contrôle
 
 - **Aperçu** de l'écran d'affichage (mise en page simplifiée).
-- Boutons de temps : **+1 h**, **-1 h**, **+10 min**, **-10 min**, **+1 j**, **-1 j**.
-- Éditeurs de texte pour les **deux colonnes** sous l'horloge, avec bouton **Appliquer les textes sur l'écran**.
+- Boutons de temps : **Heure**, **Minute**, **Jour**.
+- Éditeurs de texte pour les **deux colonnes** sous l'horloge.
 - **Compte à rebours** : saisie des minutes (1–999), **Démarrer**, **Arrêter**, **Réinitialiser**.
 - Choix du **mode d'affichage** : heure manuelle ou compte à rebours.
 - Fermer la fenêtre de contrôle avec la croix la **masque** (elle reste ouvrable depuis l'affichage).
 - **Ctrl+C** depuis la fenêtre d'affichage : **rouvre** la fenêtre de contrôle si elle est masquée. Un bandeau rappelle ce raccourci tant que la fenêtre de contrôle n'est pas visible.
-- Bouton **Fermer l'application** pour quitter proprement.
 
 ### Multi-écrans
 
